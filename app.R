@@ -1,68 +1,50 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
-library(mongolite)
 library(jsonlite)
-limit <- 10L
+library(mongolite)
+
+ui <- fluidPage("Mongodb query",
+                   sidebarLayout(
+                     sidebarPanel(
+                       selectInput(inputId = "doc_id", label = "DOCUMENT TYPE:", choices = c("PATENT" , "SCIENCE")) 
+                     ),
+                     mainPanel(
+                       verbatimTextOutput(outputId = "text1"),
+                       dataTableOutput(outputId = "qry_results")
+                     )
+                   ))
 
 
 
-
-# Define UI for application for mongodb text search
-ui <- fluidPage(
+loadData <- function(qry){
+  mong <- mongo(collection = "documents", db = "entitydocuments", url = "mongodb://localhost:27017")
   
-  # Application title
-  titlePanel("Mongodb Data"),
-  sidebarLayout(
-    sidebarPanel(
-      textInput("title_id", "Title text", "")
-      
-    ),
-    
-    
-    
-    # Show the mongodb text search output in the main panel
-    mainPanel(
-      dataTableOutput("mydata")
-    ))
-)
+  df <- mong$find(qry , limit = 10)
+  return(df)
+}
 
 
 server <- function(input, output) {
   
-  mon <- mongo(collection = "documents", db = "entitydocuments", url = "mongodb://localhost:27017" )
-
-   titlesearchresult <- reactive({
- 
-       # Defining mongodb index
-   
-   mon$index(toJSON(list("title" = "text"), auto_unbox = TRUE))
-     text <- input$title_id
-   
-   #text search output
-   
-   mon$find(toJSON(list("$text" = list("$search" = text)), auto_unbox = TRUE))
-   
-   
- })
-  output$mydata <-renderDataTable({
+  qryResults <- reactive({
     
-    titlesearchresult()
+    ## This bit responds to the user selection 
+    ## which makes it 'reactive'
+    doc_type <- list(doc_type = input$doc_id)
     
-  
-  
+    qry <- paste0('{ "doc_type" : "',doc_type , '"}')
+    
+    df <- loadData(qry)
+    return(df)
   })
   
-}
-shinyApp(ui = ui, server = server)   
+  output$qry_results <- renderDataTable({
+    qryResults()
+  })
   
+  output$text1 <- renderText(nrow(qryResults()))
+  
+}
 
-
+# Run the application 
+shinyApp(ui = ui, server = server)
 
