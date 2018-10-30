@@ -1,50 +1,88 @@
+
+#
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+
 library(shiny)
-library(jsonlite)
 library(mongolite)
-
-ui <- fluidPage("Mongodb query",
-                   sidebarLayout(
-                     sidebarPanel(
-                       selectInput(inputId = "doc_id", label = "DOCUMENT TYPE:", choices = c("PATENT" , "SCIENCE")) 
-                     ),
-                     mainPanel(
-                       verbatimTextOutput(outputId = "text1"),
-                       dataTableOutput(outputId = "qry_results")
-                     )
-                   ))
+library(jsonlite)
+limit <- 10L
 
 
-
-loadData <- function(qry){
-  mong <- mongo(collection = "documents", db = "entitydocuments", url = "mongodb://localhost:27017")
+# Define UI for application for mongodb text search
+ui <- fluidPage(
   
-  df <- mong$find(qry , limit = 10)
-  return(df)
-}
+  # Application title
+  titlePanel("Mongodb text search Data"),
+  
+  sidebarLayout(
+    
+    sidebarPanel(
+      textInput("query_id", "Title text",""),
+      
+      selectInput("doc_id", "document", choices = c("PATENT", "SCIENCE"))
+      
+      
+    ),
+    
+    
+    
+    # Show the mongodb text search output in the main panel
+    mainPanel(
+      dataTableOutput("mydata")
+    ))
+)
 
 
 server <- function(input, output) {
   
-  qryResults <- reactive({
-    
-    ## This bit responds to the user selection 
-    ## which makes it 'reactive'
-    doc_type <- list(doc_type = input$doc_id)
-    
-    qry <- paste0('{ "doc_type" : "',doc_type , '"}')
-    
-    df <- loadData(qry)
-    return(df)
-  })
+  mdt <- mongo(collection = "data", db = "datadocuments", url = "mongodb://localhost:27017" )
   
-  output$qry_results <- renderDataTable({
-    qryResults()
-  })
+  titletext <- reactive({
+    
+    
+   mdt$index(toJSON(list("title" = "text"), auto_unbox = TRUE))
+    
+    q <- paste0('[{ "$match" : { "$text" : { "$search" :"',input$query_id,'" } } },
+
+{"$match" : {"doc_type": "',input$doc_id , '"} },
+
+ { "$group" : 
+
+{"_id" :  {
+"player_name" : "$player_name" }, 
+
+ "number_records" : 
+{ "$sum" : 1}
+             }
+                },
+
+{"$sort":{"number_records" : -1}},
+
+{"$limit" : 10}
+   
+   ]')
+    
   
-  output$text1 <- renderText(nrow(qryResults()))
+    jsonlite::validate(q)
+    query <- mdt$aggregate(q)
+    
+    
+    })
+  output$mydata <-renderDataTable({
+    
+    titletext()
+    
+  })
   
 }
+shinyApp(ui = ui, server = server)   
 
-# Run the application 
-shinyApp(ui = ui, server = server)
+
+
 
