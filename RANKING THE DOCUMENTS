@@ -72,7 +72,7 @@ server <- function(input, output) {
                 
 "player_name" : {"$first":"$player_name"},
 
-"title" : {"$first":"$title"},
+
 
 "player_type" : {"$first": "$player_type"},
 
@@ -115,8 +115,6 @@ server <- function(input, output) {
                 "number_records" : { "$sum" : 1} ,
                 
 "player_name" : {"$first":"$player_name"},
-
-"title" : {"$first":"$title"},
 
 "player_type" : {"$first": "$player_type"},
 
